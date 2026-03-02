@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LAPS Self-Service</title>
+
+  <!--
+    Runtime configuration is loaded from authConfig.js (gitignored).
+    Copy authConfig.example.js → authConfig.js and fill in your deployment values.
+    See docs/CONFIGURATION.md for the full setup guide.
+  -->
+  <script src="authConfig.js" onerror="void 0"></script>
+
+  <style>
+    /* ── CSS Variables – override in config.js via :root injection or here ──── */
+    :root {
+      --color-primary:        #0078d4;
+      --color-primary-hover:  #106ebe;
+      --color-primary-active: #005a9e;
+      --color-primary-light:  #deecf9;
+      --color-primary-text:   #ffffff;
+
+      --color-success:    #107c10;
+      --color-success-bg: #dff6dd;
+      --color-warning:    #7a6c00;
+      --color-warning-bg: #fff4ce;
+      --color-danger:     #a4262c;
+      --color-danger-bg:  #fde7e9;
+
+      --color-bg:           #f5f5f5;
+      --color-surface:      #ffffff;
+      --color-border:       #e8e8e8;
+      --color-text:         #202020;
+      --color-text-muted:   #717171;
+      --color-overlay:      rgba(0, 0, 0, 0.45);
+
+      --font:          'Segoe UI', system-ui, -apple-system, sans-serif;
+      --font-mono:     'Cascadia Code', 'Consolas', monospace;
+      --font-size:     16px;
+      --font-size-sm:  14px;
+      --font-size-xs:  12px;
+      --font-size-lg:  20px;
+      --font-size-xl:  28px;
+
+      --radius:    8px;
+      --radius-lg: 12px;
+      --shadow:    0 2px 8px rgba(0,0,0,.10);
+      --shadow-lg: 0 8px 32px rgba(0,0,0,.16);
+
+      --topbar-h: 56px;
+      --content-w: 800px;
+
+      /* Theming – override these for custom branding */
+      --logo-url:    none;           /* url('/logo.svg') */
+      --logo-width:  140px;
+      --logo-height: 36px;
+    }
+
+    /* ── Reset ─────────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font);
+      font-size: var(--font-size);
+      color: var(--color-text);
+      background: var(--color-bg);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── View system ───────────────────────────────────────────────────────── */
+    .view        { display: none; min-height: 100vh; }
+    .view.active { display: flex; flex-direction: column; }
+
+    /* ── Centred layout helper ─────────────────────────────────────────────── */
+    .center-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    /* ── Card ──────────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--color-surface);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      padding: 40px 36px;
+    }
+    .card-center {
+      max-width: 440px;
+      width: 100%;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* ── Logo ──────────────────────────────────────────────────────────────── */
+    .logo {
+      width: var(--logo-width);
+      height: var(--logo-height);
+      background-image: var(--logo-url);
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+
+    /* ── Typography ────────────────────────────────────────────────────────── */
+    .title    { font-size: var(--font-size-xl); font-weight: 600; line-height: 1.2; }
+    .subtitle { font-size: var(--font-size-sm); color: var(--color-text-muted); max-width: 320px; line-height: 1.5; }
+    .hint     { font-size: var(--font-size-xs); color: var(--color-text-muted); }
+
+    /* ── Login view – fancy ────────────────────────────────────────────────── */
+    #view-login {
+      background:
+        radial-gradient(ellipse at 20% 25%, rgba(0,120,212,.30) 0%, transparent 52%),
+        radial-gradient(ellipse at 78% 72%, rgba(88,24,119,.20) 0%, transparent 52%),
+        linear-gradient(155deg, #071428 0%, #0d2347 45%, #0b1a38 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    #view-login::before, #view-login::after {
+      content: ''; position: absolute; border-radius: 50%; pointer-events: none;
+    }
+    #view-login::before {
+      width: 560px; height: 560px; top: -140px; left: -180px;
+      background: radial-gradient(circle, rgba(0,120,212,.18) 0%, transparent 70%);
+      animation: lf-float-a 9s ease-in-out infinite;
+    }
+    #view-login::after {
+      width: 420px; height: 420px; bottom: -100px; right: -120px;
+      background: radial-gradient(circle, rgba(0,160,255,.12) 0%, transparent 70%);
+      animation: lf-float-b 12s ease-in-out infinite;
+    }
+    @keyframes lf-float-a { 0%,100%{transform:translate(0,0)} 50%{transform:translate(28px,18px)} }
+    @keyframes lf-float-b { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-22px,-28px)} }
+
+    /* Card override for login */
+    #view-login .card-center {
+      background: rgba(255,255,255,.98);
+      border-radius: 18px;
+      border-top: 3px solid #0078d4;
+      box-shadow: 0 32px 80px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.08);
+      gap: 18px;
+      padding: 48px 44px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Shield-lock app icon */
+    .login-icon {
+      width: 68px; height: 68px;
+      background: linear-gradient(145deg, #0078d4 0%, #106ebe 100%);
+      border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 10px 30px rgba(0,120,212,.45);
+      margin-bottom: 4px;
+    }
+    .login-icon svg { width: 34px; height: 34px; fill: #fff; }
+
+    /* Typography overrides for login */
+    #view-login .title {
+      font-size: 26px; font-weight: 700;
+      color: #0a1628; letter-spacing: -.3px;
+    }
+    #view-login .subtitle {
+      color: #5a6a7a; max-width: 300px; line-height: 1.6;
+    }
+
+    /* Feature bullets */
+    .login-features {
+      width: 100%; text-align: left;
+      background: #f4f8fc;
+      border: 1px solid #ddeaf8;
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 9px;
+    }
+    .login-feature {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 13px; color: #384858;
+    }
+    .login-feature svg { width: 15px; height: 15px; fill: #0078d4; flex-shrink: 0; }
+
+    /* Divider */
+    .login-divider {
+      width: 100%; height: 1px;
+      background: linear-gradient(to right, transparent, #d8e8f4, transparent);
+    }
+
+    /* MS button overrides for login */
+    #view-login .btn-microsoft {
+      width: 100%; justify-content: center;
+      padding: 12px 24px; font-size: 15px; font-weight: 600;
+      border: 1.5px solid #d0d8e0; border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+      transition: background .18s, border-color .18s, box-shadow .18s, transform .15s;
+      gap: 12px;
+    }
+    #view-login .btn-microsoft:hover {
+      background: #eef4fc; border-color: #0078d4;
+      box-shadow: 0 6px 20px rgba(0,120,212,.22);
+      transform: translateY(-1px);
+    }
+    #view-login .btn-microsoft:active { transform: translateY(0); box-shadow: none; }
+    #view-login .hint { font-size: 12px; color: #94a3b4; }
+    .login-blog-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 16px; font-size: 11px; color: #94a3b4;
+      text-decoration: none; transition: color .15s;
+    }
+    .login-blog-link:hover { color: #0078d4; }
+    .login-blog-link img { border-radius: 3px; opacity: .8; }
+    .login-blog-powered { opacity: .7; }
+
+    /* ── App footer ─────────────────────────────────────────────────────────── */
+    .app-footer {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+      display: flex; align-items: center; justify-content: center;
+      height: 36px; padding: 0 16px;
+      background: var(--color-surface); border-top: 1px solid var(--color-border);
+    }
+    .app-footer-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--color-text-muted);
+      text-decoration: none; transition: color .15s;
+    }
+    .app-footer-link:hover { color: var(--color-primary); }
+    .app-footer-link img { border-radius: 3px; opacity: .8; }
+    .app-footer-powered { opacity: .7; }
+
+    .section-title { font-size: var(--font-size-lg); font-weight: 600; margin-bottom: 4px; }
+    .section-sub   { font-size: var(--font-size-sm); color: var(--color-text-muted); margin-bottom: 20px; }
+
+    /* ── Buttons ───────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; border: 1px solid transparent; border-radius: var(--radius);
+      font-family: inherit; font-size: var(--font-size); font-weight: 500;
+      cursor: pointer; padding: 8px 16px; transition: background .15s, color .15s, border-color .15s;
+      white-space: nowrap; text-decoration: none; user-select: none;
+    }
+    .btn:disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
+
+    .btn-primary  { background: var(--color-primary); color: var(--color-primary-text); }
+    .btn-primary:hover  { background: var(--color-primary-hover); }
+    .btn-primary:active { background: var(--color-primary-active); }
+
+    .btn-secondary { background: transparent; border-color: var(--color-primary); color: var(--color-primary); }
+    .btn-secondary:hover { background: var(--color-primary-light); }
+
+    .btn-ghost { background: transparent; border-color: var(--color-border); color: var(--color-text-muted); }
+    .btn-ghost:hover { background: var(--color-bg); color: var(--color-text); }
+
+    .btn-icon {
+      background: transparent; border-color: transparent;
+      padding: 6px; border-radius: var(--radius); color: var(--color-text-muted);
+    }
+    .btn-icon:hover { background: var(--color-bg); color: var(--color-text); }
+
+    .btn-lg  { font-size: var(--font-size-lg); padding: 12px 28px; }
+    .btn-sm  { font-size: var(--font-size-sm); padding: 5px 10px; }
+
+    /* Microsoft sign-in button */
+    .btn-microsoft {
+      background: #fff; border: 1px solid #8c8c8c; color: #5e5e5e;
+      font-size: var(--font-size-sm); gap: 10px; padding: 10px 20px;
+    }
+    .btn-microsoft:hover { background: #f5f5f5; }
+
+    /* ── Spinner ───────────────────────────────────────────────────────────── */
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--color-border);
+      border-top-color: var(--color-primary);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    .spinner-sm { width: 20px; height: 20px; border-width: 2px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-msg { color: var(--color-text-muted); font-size: var(--font-size-sm); margin-top: 12px; }
+
+    /* ── Top bar ───────────────────────────────────────────────────────────── */
+    .topbar {
+      position: sticky; top: 0; z-index: 50;
+      display: flex; align-items: center; gap: 12px;
+      height: var(--topbar-h); padding: 0 24px;
+      background: var(--color-surface); border-bottom: 1px solid var(--color-border);
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .topbar-logo { width: var(--logo-width); height: var(--logo-height); background-image: var(--logo-url); background-size: contain; background-repeat: no-repeat; background-position: left center; flex-shrink: 0; }
+    .topbar-title { font-weight: 600; flex: 1; font-size: var(--font-size-lg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .topbar-user  { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .topbar-upn   { font-size: var(--font-size-sm); color: var(--color-text-muted); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Main content ──────────────────────────────────────────────────────── */
+    .main { flex: 1; max-width: var(--content-w); width: 100%; margin: 0 auto; padding: 32px 24px; }
+
+    /* ── Device grid ───────────────────────────────────────────────────────── */
+    .device-grid { display: flex; flex-direction: column; gap: 10px; }
+
+    .device-card {
+      display: flex; align-items: center; gap: 14px;
+      background: var(--color-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .device-card:hover { border-color: var(--color-primary); box-shadow: 0 2px 12px rgba(0,120,212,.12); }
+
+    .device-icon {
+      flex-shrink: 0; width: 42px; height: 42px;
+      background: var(--color-primary-light); border-radius: var(--radius);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .device-icon svg { width: 22px; height: 22px; fill: var(--color-primary); }
+
+    .device-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .device-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .device-meta { font-size: var(--font-size-xs); color: var(--color-text-muted); }
+
+    /* ── Badge ─────────────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-block; font-size: var(--font-size-xs); font-weight: 500;
+      padding: 2px 8px; border-radius: 99px; white-space: nowrap;
+    }
+    .badge-success { background: var(--color-success-bg); color: var(--color-success); }
+    .badge-warning { background: var(--color-warning-bg); color: var(--color-warning); }
+    .badge-neutral { background: var(--color-border); color: var(--color-text-muted); }
+
+    /* ── Empty state ───────────────────────────────────────────────────────── */
+    .empty { text-align: center; padding: 48px 16px; color: var(--color-text-muted); }
+    .empty svg { width: 48px; height: 48px; fill: var(--color-border); margin-bottom: 12px; }
+
+    /* ── Error view ────────────────────────────────────────────────────────── */
+    .error-card  { border-top: 4px solid var(--color-danger); }
+    .error-icon  { width: 48px; height: 48px; fill: var(--color-danger); }
+    .error-title { font-size: var(--font-size-lg); font-weight: 600; color: var(--color-danger); }
+    .error-msg   { font-size: var(--font-size-sm); color: var(--color-text-muted); max-width: 340px; line-height: 1.5; }
+
+    /* ── Modal overlay ─────────────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: var(--color-overlay);
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+      animation: fadeIn .18s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .modal-card {
+      background: var(--color-surface); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg); width: 100%; max-width: 480px;
+      max-height: calc(100vh - 32px); overflow-y: auto;
+      animation: slideUp .2s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 24px 0; gap: 8px;
+    }
+    .modal-header h2 { font-size: var(--font-size-lg); font-weight: 600; }
+
+    .modal-body   { padding: 16px 24px 24px; display: flex; flex-direction: column; gap: 14px; }
+    .modal-device { font-size: var(--font-size-sm); color: var(--color-text-muted); font-weight: 500; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
+    /* Modal phase visibility */
+    .modal-phase      { display: none; }
+    .modal-phase.active { display: flex; flex-direction: column; gap: 14px; }
+
+    /* ── Form elements ─────────────────────────────────────────────────────── */
+    label { font-size: var(--font-size-sm); font-weight: 500; }
+    .req  { color: var(--color-danger); margin-left: 2px; }
+
+    textarea {
+      width: 100%; font-family: inherit; font-size: var(--font-size-sm);
+      border: 1px solid var(--color-border); border-radius: var(--radius);
+      padding: 8px 10px; resize: vertical; min-height: 96px;
+      color: var(--color-text); background: var(--color-surface);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    textarea:focus {
+      outline: none; border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px rgba(0,120,212,.2);
+    }
+    .char-counter { font-size: var(--font-size-xs); color: var(--color-text-muted); text-align: right; margin-top: 4px; }
+
+    /* ── Password display ──────────────────────────────────────────────────── */
+    .pw-field {
+      display: flex; align-items: center; gap: 4px;
+      border: 1px solid var(--color-border); border-radius: var(--radius);
+      padding: 4px 4px 4px 12px; background: var(--color-bg);
+    }
+    .pw-input {
+      flex: 1; border: none; background: transparent; outline: none;
+      font-family: var(--font-mono); font-size: 18px; letter-spacing: .06em;
+      color: var(--color-text);
+    }
+    .pw-expires { font-size: var(--font-size-xs); color: var(--color-text-muted); }
+    .pw-copy-confirm { font-size: var(--font-size-sm); color: var(--color-success); font-weight: 500; min-height: 20px; }
+
+    /* ── Countdown ─────────────────────────────────────────────────────────── */
+    .countdown-wrap  { display: flex; flex-direction: column; gap: 6px; }
+    .countdown-label { display: flex; justify-content: space-between; font-size: var(--font-size-xs); }
+    .countdown-label span { font-weight: 600; }
+    .countdown-bar { height: 6px; background: var(--color-border); border-radius: 99px; overflow: hidden; }
+    .countdown-fill {
+      height: 100%; border-radius: 99px;
+      background: var(--color-primary);
+      transition: width 1s linear, background .5s;
+    }
+    .countdown-fill.urgent  { background: var(--color-danger); }
+    .countdown-fill.expired   { background: var(--color-border); }
+
+    /* ── Expired notice ─────────────────────────────────────────────────────── */
+    .pw-expired-msg {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px; padding: 16px 0;
+      color: var(--color-text-muted); font-size: var(--font-size-sm); text-align: center;
+    }
+    .pw-expired-msg svg { width: 28px; height: 28px; fill: var(--color-text-muted); opacity: .6; }
+    .pw-expired-msg strong { color: var(--color-text); font-size: var(--font-size-base); font-weight: 600; }
+
+    /* ── Modal error ───────────────────────────────────────────────────────── */
+    .modal-error-box {
+      background: var(--color-danger-bg); border-radius: var(--radius);
+      padding: 12px 14px; font-size: var(--font-size-sm); color: var(--color-danger);
+    }
+
+    /* ── SVG icons util ────────────────────────────────────────────────────── */
+    .icon { width: 20px; height: 20px; fill: currentColor; flex-shrink: 0; }
+    .icon-lg { width: 24px; height: 24px; }
+
+    /* ── Utilities ─────────────────────────────────────────────────────────── */
+    .hidden  { display: none !important; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+    /* ── Responsive ────────────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .card { padding: 28px 20px; }
+      .main { padding: 20px 12px; }
+      .topbar { padding: 0 16px; }
+      .topbar-upn { display: none; }
+      .device-card { flex-wrap: wrap; }
+      .device-card .btn { width: 100%; justify-content: center; }
+      .modal-actions { flex-direction: column-reverse; }
+      .modal-actions .btn { width: 100%; justify-content: center; }
+    }
+  </style>
+
+  <!--
+    Branding overrides – edit css/theme.css to customize colors, fonts, and logo.
+    This file is loaded after the inline styles above, so any variable
+    defined here takes precedence over the built-in defaults.
+  -->
+  <link rel="stylesheet" href="css/theme.css" />
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- View: Login                                                            -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-login" class="view active">
+    <div class="center-wrap">
+      <div class="card card-center">
+
+        <!-- Shield-lock icon -->
+        <div class="login-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5L12 1z" opacity=".9"/>
+            <path d="M12 8c-1.1 0-2 .9-2 2v.5H9.5v4h5v-4H14V10c0-1.1-.9-2-2-2zm.75 5.25h-1.5v-1.5h1.5v1.5zM12 9.25c.41 0 .75.34.75.75v.5h-1.5V10c0-.41.34-.75.75-.75z" fill="rgba(255,255,255,.95)"/>
+          </svg>
+        </div>
+
+        <h1 class="title">LAPS Self-Service</h1>
+        <p class="subtitle">
+          Retrieve the local administrator password for your personal computer
+          without opening a helpdesk ticket.
+        </p>
+
+        <!-- Feature highlights -->
+        <div class="login-features" aria-label="Key features">
+          <div class="login-feature">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+            Sign in with your Company Account
+          </div>
+        </div>
+
+        <div class="login-divider" aria-hidden="true"></div>
+
+        <button id="btn-login" class="btn btn-microsoft" type="button">
+          <svg width="20" height="20" viewBox="0 0 21 21" aria-hidden="true">
+            <rect x="1"  y="1"  width="9" height="9" fill="#F25022"/>
+            <rect x="11" y="1"  width="9" height="9" fill="#7FBA00"/>
+            <rect x="1"  y="11" width="9" height="9" fill="#00A4EF"/>
+            <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+          </svg>
+          Sign in with Microsoft
+        </button>
+
+        <p class="hint">Your account must be a member of this organisation.</p>
+
+        <a href="https://headsinthecloud.blog" target="_blank" rel="noopener noreferrer" class="login-blog-link">
+          <span class="login-blog-powered">Powered by</span>
+          <img src="https://headsinthecloud.blog/wp-content/uploads/2026/02/cropped-headsinthecloud_favicon-32x32.png"
+               alt="" width="16" height="16" aria-hidden="true">
+          headsinthecloud.blog
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shared topbar – visible on all authenticated views (loading, devices, error) -->
+  <header id="app-topbar" class="topbar hidden">
+    <div class="topbar-logo" aria-hidden="true"></div>
+    <span class="topbar-title">LAPS Self-Service</span>
+    <div class="topbar-user">
+      <span id="topbar-upn" class="topbar-upn"></span>
+      <button id="btn-logout" class="btn btn-ghost btn-sm" type="button">Sign out</button>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- View: Loading                                                          -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-loading" class="view">
+    <div class="center-wrap">
+      <div style="text-align:center">
+        <div class="spinner" role="status" aria-label="Loading"></div>
+        <p id="loading-msg" class="loading-msg">Loading…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- View: Devices                                                          -->
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-devices" class="view">
+    <div class="main">
+      <h2 class="section-title">Your devices</h2>
+      <p class="section-sub">Select the device you need local administrator access for.</p>
+      <div id="device-grid" class="device-grid" role="list"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- View: Error                                                            -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div id="view-error" class="view">
+    <div class="center-wrap">
+      <div class="card card-center error-card">
+        <svg class="error-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+        </svg>
+        <p id="error-title" class="error-title">Something went wrong</p>
+        <p id="error-msg"   class="error-msg"></p>
+        <button id="btn-error-retry" class="btn btn-primary" type="button">Try again</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- Modal: Justification → Password flow                                   -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+
+      <!-- Phase: Justification ──────────────────────────────────────────── -->
+      <div id="phase-justification" class="modal-phase">
+        <div class="modal-header">
+          <h2 id="modal-title">Request LAPS password</h2>
+          <button id="btn-modal-close-j" class="btn btn-icon" type="button" aria-label="Close">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p id="modal-device-name" class="modal-device"></p>
+
+          <div>
+            <label for="justification-input">
+              Why do you need local administrator access?<span class="req" aria-hidden="true">*</span>
+            </label>
+            <textarea
+              id="justification-input"
+              maxlength="500"
+              rows="4"
+              placeholder="e.g. Installing required software not available via Company Portal – ticket #1234"
+              aria-required="true"
+            ></textarea>
+            <div class="char-counter">
+              <span id="char-count">0</span>/500 &nbsp;·&nbsp; min. <span id="min-len"></span> characters
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button id="btn-modal-cancel" class="btn btn-ghost" type="button">Cancel</button>
+            <button id="btn-modal-submit" class="btn btn-primary" type="button" disabled>
+              Request password
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase: Loading ────────────────────────────────────────────────── -->
+      <div id="phase-loading" class="modal-phase">
+        <div class="modal-body" style="align-items:center; padding-top:32px; padding-bottom:32px;">
+          <div class="spinner"></div>
+          <p class="loading-msg">Retrieving password…</p>
+        </div>
+      </div>
+
+      <!-- Phase: Password ───────────────────────────────────────────────── -->
+      <div id="phase-password" class="modal-phase">
+        <div class="modal-header">
+          <h2 id="modal-title-pw">LAPS Password</h2>
+          <button id="btn-modal-close-pw" class="btn btn-icon" type="button" aria-label="Close">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p id="pw-device-name" class="modal-device"></p>
+          <p id="pw-account-name" class="modal-device" style="color:var(--color-text-muted)"></p>
+
+          <!-- Countdown -->
+          <div class="countdown-wrap">
+            <div class="countdown-label">
+              <span>Password visibility</span>
+              <span id="countdown-text">60s</span>
+            </div>
+            <div class="countdown-bar">
+              <div id="countdown-fill" class="countdown-fill" style="width:100%"></div>
+            </div>
+          </div>
+
+          <!-- Password field -->
+          <div id="pw-field-wrap" class="pw-field">
+            <input id="pw-input" class="pw-input" type="password" readonly
+                   aria-label="Local administrator password" />
+            <button id="btn-toggle-pw" class="btn btn-icon" type="button" aria-label="Show / hide password">
+              <svg id="icon-eye" class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/>
+              </svg>
+            </button>
+            <button id="btn-copy-pw" class="btn btn-icon" type="button" aria-label="Copy to clipboard">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+              </svg>
+            </button>
+          </div>
+
+          <p id="pw-copy-confirm" class="pw-copy-confirm hidden" role="alert">Copied to clipboard!</p>
+
+          <!-- Expired notice (shown instead of pw-field after timeout) -->
+          <div id="pw-expired-msg" class="pw-expired-msg hidden" role="alert">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+            <strong>Time expired</strong>
+            <span>Please retrieve the password again.</span>
+          </div>
+          <p id="pw-expires" class="pw-expires"></p>
+
+          <p style="font-size:var(--font-size-xs); color:var(--color-text-muted); line-height:1.5;">
+            This password is only displayed temporarily and is never stored.
+            Close this window when you are done.
+          </p>
+        </div>
+      </div>
+
+      <!-- Phase: Error ──────────────────────────────────────────────────── -->
+      <div id="phase-error" class="modal-phase">
+        <div class="modal-header">
+          <h2>Could not retrieve password</h2>
+          <button id="btn-modal-close-e" class="btn btn-icon" type="button" aria-label="Close">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="modal-error-box" class="modal-error-box" role="alert"></div>
+          <div class="modal-actions">
+            <button id="btn-modal-close-e2" class="btn btn-ghost" type="button">Close</button>
+            <button id="btn-modal-retry" class="btn btn-primary" type="button">Try again</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /.modal-card -->
+  </div><!-- /#modal-overlay -->
+
+  <!-- MSAL.js 2.x -->
+  <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.4/lib/msal-browser.min.js"></script>
+
+  <!-- Persistent footer – hidden on login screen (has its own inline credit) -->
+  <footer id="app-footer" class="app-footer hidden">
+    <a href="https://headsinthecloud.blog" target="_blank" rel="noopener noreferrer" class="app-footer-link">
+      <span class="app-footer-powered">Powered by</span>
+      <img src="https://headsinthecloud.blog/wp-content/uploads/2026/02/cropped-headsinthecloud_favicon-32x32.png"
+           alt="" width="16" height="16" aria-hidden="true">
+      headsinthecloud.blog
+    </a>
+  </footer>
+
+  <script>
+  'use strict';
+
+  // ── Configuration ──────────────────────────────────────────────────────────
+  // Values are read from window.LAPS_CONFIG (set by config.js) with fallbacks.
+  // Replace the fallback strings before deploying, or create config.js.
+  const C = Object.assign({
+    msalClientId:          '',
+    tenantId:              '',
+    apiBaseUrl:            '',
+    apiScope:              '',
+    passwordTimeout:       60,
+    justificationMinLength: 10,
+  }, window.LAPS_CONFIG ?? {});
+
+  const MSAL_CONFIG = {
+    auth: {
+      clientId:    C.msalClientId,
+      authority:   `https://login.microsoftonline.com/${C.tenantId}`,
+      redirectUri: window.location.origin,
+    },
+    cache: {
+      cacheLocation:          'sessionStorage',
+      storeAuthStateInCookie: false,
+    },
+  };
+
+  // ── MSAL setup ─────────────────────────────────────────────────────────────
+  const msal = new window.msal.PublicClientApplication(MSAL_CONFIG);
+
+  // ── App state ──────────────────────────────────────────────────────────────
+  let activeDevice   = null;   // { id, name } currently selected
+  let countdownTimer = null;
+  let countdownTotal = C.passwordTimeout;
+
+  // ── View management ────────────────────────────────────────────────────────
+  const views = {
+    login:   document.getElementById('view-login'),
+    loading: document.getElementById('view-loading'),
+    devices: document.getElementById('view-devices'),
+    error:   document.getElementById('view-error'),
+  };
+  const appTopbar  = document.getElementById('app-topbar');
+  const appFooter   = document.getElementById('app-footer');
+
+  function showView(name) {
+    Object.values(views).forEach(v => v.classList.remove('active'));
+    views[name].classList.add('active');
+    // Show topbar + footer on all views except the login screen
+    // (login has its own inline "powered by" credit)
+    const authenticated = name !== 'login';
+    appTopbar.classList.toggle('hidden', !authenticated);
+    appFooter.classList.toggle('hidden', !authenticated);
+  }
+
+  function setLoading(msg = 'Loading…') {
+    document.getElementById('loading-msg').textContent = msg;
+    showView('loading');
+  }
+
+  function showGlobalError(title, msg, retryFn) {
+    document.getElementById('error-title').textContent = title;
+    document.getElementById('error-msg').textContent   = msg;
+    document.getElementById('btn-error-retry').onclick = retryFn ?? (() => boot());
+    showView('error');
+  }
+
+  // ── Modal management ───────────────────────────────────────────────────────
+  const overlay = document.getElementById('modal-overlay');
+  const phases  = {
+    justification: document.getElementById('phase-justification'),
+    loading:       document.getElementById('phase-loading'),
+    password:      document.getElementById('phase-password'),
+    error:         document.getElementById('phase-error'),
+  };
+
+  function openModal(phase) {
+    overlay.classList.remove('hidden');
+    Object.values(phases).forEach(p => p.classList.remove('active'));
+    phases[phase].classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    overlay.classList.add('hidden');
+    Object.values(phases).forEach(p => p.classList.remove('active'));
+    document.body.style.overflow = '';
+    stopCountdown();
+    clearPasswordField();
+    resetJustificationForm();
+    activeDevice = null;
+  }
+
+  function switchModalPhase(phase) {
+    Object.values(phases).forEach(p => p.classList.remove('active'));
+    phases[phase].classList.add('active');
+  }
+
+  // ── Authentication ─────────────────────────────────────────────────────────
+  async function login() {
+    await msal.loginRedirect({
+      scopes: ['openid', 'profile', 'User.Read'],
+      prompt: 'select_account',
+    });
+  }
+
+  async function logout() {
+    const account = msal.getActiveAccount();
+    await msal.logoutRedirect({ account, postLogoutRedirectUri: window.location.origin });
+  }
+
+  async function getToken() {
+    const account = msal.getActiveAccount();
+    if (!account) throw new Error('No authenticated account.');
+    try {
+      const res = await msal.acquireTokenSilent({ account, scopes: [C.apiScope] });
+      return res.accessToken;
+    } catch (err) {
+      if (err instanceof window.msal.InteractionRequiredAuthError) {
+        // Redirect back to /api/laps – page will reload and pick up result
+        await msal.acquireTokenRedirect({ account, scopes: [C.apiScope] });
+        return ''; // unreachable – redirect happens
+      }
+      throw err;
+    }
+  }
+
+  // ── API helpers ────────────────────────────────────────────────────────────
+  async function apiFetch(path, opts = {}) {
+    const token = await getToken();
+    const res   = await fetch(C.apiBaseUrl + path, {
+      ...opts,
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...(opts.headers ?? {}),
+      },
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(body.message ?? `HTTP ${res.status}`);
+      err.status = res.status;
+      err.code   = body.error;
+      throw err;
+    }
+    return body;
+  }
+
+  // ── Device list ────────────────────────────────────────────────────────────
+  async function loadDevices() {
+    setLoading('Loading your devices…');
+    let data;
+    try {
+      data = await apiFetch('/api/my-devices');
+    } catch (err) {
+      showGlobalError(
+        'Failed to load devices',
+        err.message ?? 'Could not connect to the backend. Please try again.',
+        loadDevices
+      );
+      return;
+    }
+    renderDevices(data.devices ?? []);
+  }
+
+  function renderDevices(devices) {
+    const account = msal.getActiveAccount();
+    document.getElementById('topbar-upn').textContent =
+      account?.username ?? account?.name ?? '';
+
+    const grid = document.getElementById('device-grid');
+    grid.innerHTML = '';
+
+    if (devices.length === 0) {
+      grid.innerHTML = `
+        <div class="empty" role="status">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12z"/></svg>
+          <p>No managed devices found for your account.</p>
+        </div>`;
+      showView('devices');
+      return;
+    }
+
+    devices.forEach(device => {
+      const isMgd    = device.isManaged;
+      const lastSeen = device.lastSignIn ? fmtDate(device.lastSignIn) : 'Unknown';
+      const badge    = isMgd
+        ? '<span class="badge badge-success">Managed</span>'
+        : '<span class="badge badge-neutral">Unmanaged</span>';
+
+      const card = document.createElement('div');
+      card.className = 'device-card';
+      card.setAttribute('role', 'listitem');
+      card.innerHTML = `
+        <div class="device-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zm-8-2l-4-4 1.41-1.41L12 13.17l6.59-6.58L20 8l-8 8z"/></svg>
+        </div>
+        <div class="device-info">
+          <span class="device-name">${esc(device.name)}</span>
+          <span class="device-meta">${esc(device.operatingSystem || 'Windows')} &nbsp;·&nbsp; Last seen: ${lastSeen}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+          ${badge}
+          <button class="btn btn-primary btn-sm" type="button"
+                  data-id="${esc(device.id)}" data-name="${esc(device.name)}">
+            Get password
+          </button>
+        </div>`;
+      grid.appendChild(card);
+    });
+
+    // Bind "Get password" buttons
+    grid.querySelectorAll('[data-id]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeDevice = { id: btn.dataset.id, name: btn.dataset.name };
+        openJustificationModal(activeDevice.name);
+      });
+    });
+
+    showView('devices');
+  }
+
+  // ── Justification modal ────────────────────────────────────────────────────
+  function openJustificationModal(deviceName) {
+    document.getElementById('modal-device-name').textContent = `Device: ${deviceName}`;
+    document.getElementById('min-len').textContent = C.justificationMinLength;
+    resetJustificationForm();
+    openModal('justification');
+    document.getElementById('justification-input').focus();
+  }
+
+  function resetJustificationForm() {
+    const ta = document.getElementById('justification-input');
+    if (ta) {
+      ta.value = '';
+      document.getElementById('char-count').textContent = '0';
+      document.getElementById('btn-modal-submit').disabled = true;
+    }
+  }
+
+  // ── LAPS password retrieval ────────────────────────────────────────────────
+  async function requestPassword() {
+    const justification = document.getElementById('justification-input').value.trim();
+    if (!justification || !activeDevice) return;
+
+    switchModalPhase('loading');
+
+    let data;
+    try {
+      data = await apiFetch('/api/laps-password', {
+        method: 'POST',
+        body:   JSON.stringify({ deviceId: activeDevice.id, justification }),
+      });
+    } catch (err) {
+      const msg = err.status === 403 ? 'This device is not registered to your account.'
+                : err.status === 404 ? 'No LAPS password is stored for this device in Intune.'
+                : err.message ?? 'An unexpected error occurred.';
+      document.getElementById('modal-error-box').textContent = msg;
+      document.getElementById('btn-modal-retry').onclick = () => {
+        openJustificationModal(activeDevice.name);
+      };
+      switchModalPhase('error');
+      return;
+    }
+
+    displayPassword(data);
+  }
+
+  // ── Password display ───────────────────────────────────────────────────────
+  function displayPassword({ deviceName, accountName, password, expiresAt }) {
+    document.getElementById('pw-device-name').textContent  = `Device: ${deviceName}`;
+    document.getElementById('pw-account-name').textContent = accountName ? `Account: ${accountName}` : '';
+    document.getElementById('pw-input').value             = password;
+    document.getElementById('pw-input').type              = 'password';
+    document.getElementById('pw-copy-confirm').classList.add('hidden');
+    document.getElementById('pw-expires').textContent =
+      expiresAt ? `Password expires: ${fmtDate(expiresAt)}` : '';
+
+    switchModalPhase('password');
+    startCountdown(C.passwordTimeout);
+  }
+
+  function clearPasswordField() {
+    const inp = document.getElementById('pw-input');
+    if (inp) { inp.value = ''; inp.type = 'password'; }
+    // Restore pw field in case it was hidden due to expiry
+    document.getElementById('pw-field-wrap')?.classList.remove('hidden');
+    document.getElementById('pw-expired-msg')?.classList.add('hidden');
+    const fill = document.getElementById('countdown-fill');
+    if (fill) { fill.classList.remove('expired'); }
+    stopCountdown();
+  }
+
+  // ── Countdown ──────────────────────────────────────────────────────────────
+  function startCountdown(total) {
+    stopCountdown();
+    countdownTotal = total;
+    let remaining  = total;
+    updateCountdown(remaining, total);
+
+    countdownTimer = setInterval(() => {
+      remaining -= 1;
+      updateCountdown(remaining, total);
+      if (remaining <= 0) {
+        stopCountdown();
+        clearPasswordField();
+        // Replace password field with expiry notice
+        document.getElementById('pw-field-wrap').classList.add('hidden');
+        document.getElementById('pw-copy-confirm').classList.add('hidden');
+        document.getElementById('pw-expired-msg').classList.remove('hidden');
+        // Update countdown bar to show fully expired
+        const fill = document.getElementById('countdown-fill');
+        fill.style.width = '0%';
+        fill.classList.remove('urgent');
+        fill.classList.add('expired');
+        document.getElementById('countdown-text').textContent = 'Expired';
+      }
+    }, 1000);
+  }
+
+  function updateCountdown(remaining, total) {
+    const pct    = Math.max(0, remaining / total * 100);
+    const fill   = document.getElementById('countdown-fill');
+    const label  = document.getElementById('countdown-text');
+    fill.style.width = `${pct}%`;
+    fill.classList.toggle('urgent', remaining <= 10);
+    label.textContent = `${remaining}s`;
+  }
+
+  function stopCountdown() {
+    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+  }
+
+  // ── Utilities ──────────────────────────────────────────────────────────────
+  function esc(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function fmtDate(iso) {
+    try {
+      return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+        .format(new Date(iso));
+    } catch { return iso; }
+  }
+
+  async function copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      const confirm = document.getElementById('pw-copy-confirm');
+      confirm.classList.remove('hidden');
+      setTimeout(() => confirm.classList.add('hidden'), 2500);
+    } catch { /* clipboard unavailable */ }
+  }
+
+  // ── Event listeners ────────────────────────────────────────────────────────
+
+  // Login
+  document.getElementById('btn-login').addEventListener('click', login);
+
+  // Logout
+  document.getElementById('btn-logout').addEventListener('click', logout);
+
+  // Error retry
+  // (onclick set dynamically in showGlobalError)
+
+  // Justification textarea
+  document.getElementById('justification-input').addEventListener('input', () => {
+    const len = document.getElementById('justification-input').value.trim().length;
+    document.getElementById('char-count').textContent = len;
+    document.getElementById('btn-modal-submit').disabled = (len < C.justificationMinLength);
+  });
+
+  // Submit justification
+  document.getElementById('btn-modal-submit').addEventListener('click', requestPassword);
+
+  // Enter key in textarea
+  document.getElementById('justification-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.ctrlKey) requestPassword();
+  });
+
+  // Cancel / close buttons
+  document.getElementById('btn-modal-cancel').addEventListener('click',    closeModal);
+  document.getElementById('btn-modal-close-j').addEventListener('click',   closeModal);
+  document.getElementById('btn-modal-close-pw').addEventListener('click',  closeModal);
+  document.getElementById('btn-modal-close-e').addEventListener('click',   closeModal);
+  document.getElementById('btn-modal-close-e2').addEventListener('click',  closeModal);
+
+  // Close on overlay click
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+  // ESC closes modal
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !overlay.classList.contains('hidden')) closeModal();
+  });
+
+  // Toggle password visibility
+  document.getElementById('btn-toggle-pw').addEventListener('click', () => {
+    const inp = document.getElementById('pw-input');
+    const eye = document.getElementById('icon-eye');
+    if (inp.type === 'password') {
+      inp.type = 'text';
+      eye.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/>';
+    } else {
+      inp.type = 'password';
+      eye.innerHTML = '<path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/>';
+    }
+  });
+
+  // Copy password
+  document.getElementById('btn-copy-pw').addEventListener('click', () => {
+    copyToClipboard(document.getElementById('pw-input').value);
+  });
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  function boot() {
+    setLoading('Signing in…');
+
+    msal.handleRedirectPromise()
+      .then(response => {
+        if (response?.account) msal.setActiveAccount(response.account);
+
+        const accounts = msal.getAllAccounts();
+        if (accounts.length === 0) {
+          showView('login');
+          return;
+        }
+
+        if (!msal.getActiveAccount()) msal.setActiveAccount(accounts[0]);
+        loadDevices();
+      })
+      .catch(err => {
+        console.error('[MSAL]', err);
+        showGlobalError(
+          'Authentication error',
+          err.message ?? 'Sign-in failed. Please reload the page and try again.'
+        );
+      });
+  }
+
+  boot();
+  </script>
+</body>
+</html>

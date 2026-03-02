@@ -1,0 +1,6 @@
+# GitHub Linguist overrides
+# Hide HTML/JS from language stats so Bicep shows as primary language
+
+frontend/index.html   linguist-detectable=false
+frontend/**/*.js      linguist-detectable=false
+backend/**/*.js       linguist-detectable=false

@@ -1,0 +1,27 @@
+{
+  "name": "laps-self-service-backend",
+  "version": "2.0.0",
+  "description": "Azure Function App backend for the LAPS Self-Service Portal (v4 programming model)",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "func start",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@azure/data-tables": "^13.2.2",
+    "@azure/functions": "^4.5.0",
+    "@azure/identity": "^4.4.1",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "applicationinsights": "^3.3.0",
+    "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.1.0",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.9.0",
+    "eslint": "^9.9.0"
+  }
+}

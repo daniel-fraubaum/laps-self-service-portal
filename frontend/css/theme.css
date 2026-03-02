@@ -1,0 +1,60 @@
+/**
+ * theme.css – CSS custom properties for visual branding.
+ *
+ * This file is loaded AFTER the default styles in index.html, so any variable
+ * you define here overrides the built-in defaults.
+ *
+ * To apply your organization's branding: edit the values below.
+ * Variables you don't change can be removed – only overrides are needed.
+ *
+ * Loaded by: index.html  (link tag at end of <head>)
+ */
+
+:root {
+  /* ── Brand colors ─────────────────────────────────────────────────────── */
+  --color-primary:        #0078d4;   /* Main action color (buttons, links)  */
+  --color-primary-hover:  #106ebe;   /* Hover state                         */
+  --color-primary-active: #005a9e;   /* Active / pressed state              */
+  --color-primary-light:  #deecf9;   /* Subtle background tint              */
+  --color-primary-text:   #ffffff;   /* Text on primary-colored surfaces    */
+
+  /* ── Semantic colors ──────────────────────────────────────────────────── */
+  --color-success:    #107c10;
+  --color-success-bg: #dff6dd;
+  --color-warning:    #7a6c00;
+  --color-warning-bg: #fff4ce;
+  --color-danger:     #a4262c;
+  --color-danger-bg:  #fde7e9;
+
+  /* ── Neutral palette ──────────────────────────────────────────────────── */
+  --color-bg:         #f5f5f5;   /* Page background                        */
+  --color-surface:    #ffffff;   /* Card / panel background                */
+  --color-border:     #e8e8e8;   /* Dividers and input borders             */
+  --color-text:       #202020;   /* Primary body text                      */
+  --color-text-muted: #717171;   /* Secondary / hint text                  */
+  --color-overlay:    rgba(0, 0, 0, 0.45);  /* Modal backdrop              */
+
+  /* ── Typography ───────────────────────────────────────────────────────── */
+  --font:          'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono:     'Cascadia Code', 'Consolas', monospace;
+  --font-size:     16px;
+  --font-size-sm:  14px;
+  --font-size-xs:  12px;
+  --font-size-lg:  20px;
+  --font-size-xl:  28px;
+
+  /* ── Shape & shadow ───────────────────────────────────────────────────── */
+  --radius:    8px;
+  --radius-lg: 12px;
+  --shadow:    0 2px 8px rgba(0,0,0,.10);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.16);
+
+  /* ── Layout ───────────────────────────────────────────────────────────── */
+  --topbar-h:  56px;
+  --content-w: 800px;
+  /* ── Logo ─────────────────────────────────────────────────────────────── */
+  /* Set --logo-url to url('/assets/logo.svg') to show an organization logo */
+  --logo-url:    none;
+  --logo-width:  140px;
+  --logo-height: 36px;
+}
