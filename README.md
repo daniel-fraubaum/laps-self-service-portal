@@ -115,7 +115,7 @@ The script asks for confirmation, then handles everything end-to-end (~10 minute
 
 | Step | Action |
 |------|--------|
-| 1️⃣ | Creates (or reuses) the Entra ID App Registration, sets the identifier URI, generates a client secret |
+| 1️⃣ | Creates (or reuses) the Entra ID App Registration, sets the identifier URI |
 | 2️⃣ | Deploys all Azure infrastructure via Bicep (single pass) |
 | 3️⃣ | Assigns `Device.Read.All`, `DeviceLocalCredential.Read.All`, `Directory.Read.All` to the Managed Identity |
 | 4️⃣ | Deploys the backend (Azure Functions) |
@@ -123,8 +123,6 @@ The script asks for confirmation, then handles everything end-to-end (~10 minute
 | 6️⃣ | Deploys the frontend (Azure Static Web App) |
 | 7️⃣ | Registers the Static Web App URL as a redirect URI on the App Registration |
 | 8️⃣ | Grants admin consent for `User.Read` |
-
-> 💾 **Save the client secret** printed at the end — it cannot be retrieved again and is needed for re-deployments (`--secret`).
 
 > ⏳ **Allow a few minutes after deployment before the portal is fully functional.**
 > Graph API role assignments (Managed Identity permissions) can take **2–5 minutes** to propagate in Entra ID.
@@ -198,16 +196,14 @@ Entra ID then enforces MFA at token issuance — before the portal or backend se
 
 ## 🔄 Re-deploy / updates
 
-Re-use the client secret saved from the initial deployment to avoid rotating it:
-
 ```bash
 # 🍎 macOS / Linux
-./infra/deploy.sh --project laps-prod --secret "your-client-secret"
+./infra/deploy.sh --project laps-prod
 ```
 
 ```powershell
 # 🪟 Windows PowerShell
-.\infra\deploy.ps1 -Project laps-prod -Secret "your-client-secret"
+.\infra\deploy.ps1 -Project laps-prod
 ```
 
 ---
@@ -219,7 +215,7 @@ Re-use the client secret saved from the initial deployment to avoid rotating it:
 ./infra/deploy.sh --project laps-prod --skip-infra
 
 # 🍎 macOS / Linux — infrastructure only (skip backend + frontend)
-./infra/deploy.sh --project laps-prod --secret "..." --skip-backend --skip-frontend
+./infra/deploy.sh --project laps-prod --skip-backend --skip-frontend
 ```
 
 ```powershell
@@ -227,7 +223,7 @@ Re-use the client secret saved from the initial deployment to avoid rotating it:
 .\infra\deploy.ps1 -Project laps-prod -SkipInfra
 
 # 🪟 Windows PowerShell — infrastructure only
-.\infra\deploy.ps1 -Project laps-prod -Secret "..." -SkipBackend -SkipFrontend
+.\infra\deploy.ps1 -Project laps-prod -SkipBackend -SkipFrontend
 ```
 
 ### 🌐 Custom domain
@@ -237,8 +233,7 @@ Re-use the client secret saved from the initial deployment to avoid rotating it:
 ./infra/deploy.sh \
   --project  laps-prod \
   --location westeurope \
-  --domain   laps.company.com \
-  --secret   "your-client-secret"
+  --domain   laps.company.com
 ```
 
 ```powershell
@@ -246,8 +241,7 @@ Re-use the client secret saved from the initial deployment to avoid rotating it:
 .\infra\deploy.ps1 `
   -Project      laps-prod `
   -Location     westeurope `
-  -CustomDomain laps.company.com `
-  -Secret       "your-client-secret"
+  -CustomDomain laps.company.com
 ```
 
 > ⚠️ **After enabling a custom domain, add the new URL as a redirect URI on the App Registration.**

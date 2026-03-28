@@ -6,15 +6,14 @@
 .DESCRIPTION
     Deploys the complete portal in a single run:
       1.  Prerequisite + login check
-      2.  Bicep infrastructure (initial pass, no Easy Auth secret)
-      3.  Entra ID App Registration post-config (identifier URI)
-      4.  Client secret generation
-      5.  Bicep re-deploy with Easy Auth secret
-      6.  Microsoft Graph permissions for the Managed Identity
-      7.  Backend deployment (Azure Functions)
-      8.  Frontend configuration generation (authConfig.js)
-      9.  Frontend deployment (Azure Static Web Apps)
-     10.  Deployment summary
+      2.  Entra ID App Registration (identifier URI, OAuth2 scope)
+      3.  Bicep infrastructure deployment
+      4.  Microsoft Graph permissions for the Managed Identity
+      5.  Backend deployment (Azure Functions)
+      6.  Frontend configuration generation (authConfig.js)
+      7.  Frontend deployment (Azure Static Web Apps)
+      8.  Update App Registration redirect URIs
+      9.  Admin consent for User.Read
 
 .PARAMETER Project
     Project name prefix used for all Azure resource names (e.g. laps-prod).
@@ -30,10 +29,6 @@
 .PARAMETER CustomDomain
     Optional custom domain (FQDN) for the Static Web App.
 
-.PARAMETER Secret
-    Existing Easy Auth client secret. Provide this on re-deployments to skip
-    secret regeneration. If omitted, a new secret is generated.
-
 .PARAMETER SkipInfra
     Skip the Bicep deployment. Reads values from the existing deployment.
     Useful for code-only updates.
@@ -47,10 +42,6 @@
 .EXAMPLE
     # First deployment
     .\infra\deploy.ps1 -Project laps-prod
-
-.EXAMPLE
-    # Re-deploy with existing secret
-    .\infra\deploy.ps1 -Project laps-prod -Secret 'existing-client-secret'
 
 .EXAMPLE
     # Infrastructure only
@@ -70,7 +61,6 @@ param(
     [string] $SwaLocation   = '',
     [string] $ResourceGroup = '',
     [string] $CustomDomain  = '',
-    [string] $Secret        = '',
 
     [switch] $SkipInfra,
     [switch] $SkipBackend,
@@ -216,7 +206,6 @@ if ($confirm -ne '' -and $confirm.ToLower() -ne 'y') {
 # ── Step 3: App Registration (CLI) + Bicep infrastructure ────────────────────
 
 $ClientId        = ''
-$ClientSecret    = ''
 $BackendUrl      = ''
 $FrontendUrl     = ''
 $MiPrincipalId   = ''
@@ -295,36 +284,8 @@ if (-not $SkipInfra) {
         }
     }
 
-    # Client secret
-    if ($Secret) {
-        $ClientSecret = $Secret
-        Write-Ok 'Using provided client secret'
-    } else {
-        Write-Host '  Generating Easy Auth client secret…'
-        $secretDate = (Get-Date -Format 'yyyy-MM-dd')
-        try {
-            $ClientSecret = (Invoke-Az ad app credential reset `
-                --id $ClientId `
-                --append `
-                --years 2 `
-                --display-name "LAPS Portal Easy Auth – $secretDate" `
-                --query password `
-                -o tsv `
-                --only-show-errors)
-            Write-Ok 'Client secret generated (valid 2 years)'
-        } catch {
-            if ($_ -match 'policy' -or $_ -match 'Credential type not allowed') {
-                Write-Fail 'Could not create client secret – blocked by an Entra ID App Management Policy.'
-                Write-Host '  → In Azure Portal: Entra ID → Enterprise Applications → Security → App Management Policies'
-                Write-Host '    Disable "Block password credentials for applications" or exempt this app.'
-                Write-Host ''
-                Write-Host '  Once resolved, re-run and pass the manually created secret:'
-                Write-Host "  .\infra\deploy.ps1 -Project $Project -Secret '<your-secret>'"
-                exit 1
-            }
-            throw
-        }
-    }
+    # No client secret needed – Easy Auth validates tokens without a secret.
+    # The Managed Identity handles all Microsoft Graph API calls.
 
     # ── Bicep deployment (single pass – all params known upfront) ──────────────
     Write-Host '  Deploying Bicep infrastructure…'
@@ -333,8 +294,7 @@ if (-not $SkipInfra) {
         "location=$Location",
         "swaLocation=$SwaLocation",
         "resourceGroupName=$ResourceGroup",
-        "authClientId=$ClientId",
-        "authClientSecret=$ClientSecret"
+        "authClientId=$ClientId"
     )
     if ($CustomDomain) { $BicepParams += "customDomain=$CustomDomain" }
 
@@ -651,19 +611,13 @@ Write-Host "  Client ID     : $ClientId"     -ForegroundColor White
 Write-Host "  Tenant ID     : $TenantId"     -ForegroundColor White
 Write-Host ""
 
-if ($ClientSecret) {
-    Write-Host '  ⚠ Save this client secret – it cannot be retrieved again:' -ForegroundColor Yellow
-    Write-Host "    $ClientSecret"                                             -ForegroundColor Yellow
-    Write-Host ""
-}
-
 Write-Host '  Next steps:'                                                              -ForegroundColor Green
 Write-Host "  1. Open $FrontendUrl in a browser"
 Write-Host '  2. Sign in with an Entra ID account'
 Write-Host '  3. Verify your managed devices appear in the list'
 Write-Host '  4. Test LAPS password retrieval'
 Write-Host ""
-Write-Host "  For re-deployments: .\infra\deploy.ps1 -Project $Project -Secret '<your-secret>'"
+Write-Host "  For re-deployments: .\infra\deploy.ps1 -Project $Project"
 Write-Host ""
 Write-Host '  🚨 Mandatory Access Controls – do this before going live:' -ForegroundColor Red
 Write-Host ""

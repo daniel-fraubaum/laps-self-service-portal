@@ -23,10 +23,6 @@ param customDomain string = ''
 @description('Client ID of the Entra ID App Registration – created by deploy.sh before this Bicep runs')
 param authClientId string
 
-@secure()
-@description('Client secret for the Entra ID App Registration – used by Easy Auth on the Function App')
-param authClientSecret string = ''
-
 // ── Variables ─────────────────────────────────────────────────────────────────
 
 var tenantId = subscription().tenantId
@@ -107,7 +103,6 @@ module functionApp 'modules/functionapp.bicep' = {
     appInsightsConnectionString: monitoring.outputs.connectionString
     tenantId: tenantId
     authClientId: authClientId
-    authClientSecret: authClientSecret
     allowedOrigins: [staticWebApp.outputs.defaultHostname]
     tags: tags
   }

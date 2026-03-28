@@ -22,10 +22,6 @@ param tenantId string
 @description('Client ID of the App Registration (for Easy Auth audience validation)')
 param authClientId string
 
-@description('Client secret for Easy Auth. Written to MICROSOFT_PROVIDER_AUTHENTICATION_SECRET.')
-@secure()
-param authClientSecret string
-
 @description('Allowed CORS origins – typically the Static Web App URL')
 param allowedOrigins array
 
@@ -93,14 +89,6 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
           value: '~3'
         }
 
-        // ── Easy Auth – Entra ID client secret ──────────────────────────────
-        // Referenced by authsettingsV2 clientSecretSettingName below.
-        // Set this after obtaining the secret from the App Registration.
-        {
-          name: 'MICROSOFT_PROVIDER_AUTHENTICATION_SECRET'
-          value: authClientSecret
-        }
-
         // ── Application settings ────────────────────────────────────────────
         {
           name: 'TENANT_ID'
@@ -153,8 +141,6 @@ resource authSettings 'Microsoft.Web/sites/config@2023-01-01' = {
         enabled: true
         registration: {
           clientId: authClientId
-          // Reference the secret from the app setting – never hardcode secrets here
-          clientSecretSettingName: 'MICROSOFT_PROVIDER_AUTHENTICATION_SECRET'
           openIdIssuer: 'https://sts.windows.net/${tenantId}/v2.0'
         }
         validation: {

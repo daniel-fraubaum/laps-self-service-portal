@@ -5,23 +5,19 @@
 #
 # Deploys the complete portal in a single run:
 #   1.  Prerequisite + login check
-#   2.  Bicep infrastructure (initial pass, no Easy Auth secret)
-#   3.  Entra ID App Registration post-config (identifier URI)
-#   4.  Client secret generation
-#   5.  Bicep re-deploy with Easy Auth secret
-#   6.  Microsoft Graph permissions for the Managed Identity
-#   7.  Backend deployment (Azure Functions)
-#   8.  Frontend configuration generation (authConfig.js)
-#   9.  Frontend deployment (Azure Static Web Apps)
-#  10.  Deployment summary
+#   2.  Entra ID App Registration (identifier URI, OAuth2 scope)
+#   3.  Bicep infrastructure deployment
+#   4.  Microsoft Graph permissions for the Managed Identity
+#   5.  Backend deployment (Azure Functions)
+#   6.  Frontend configuration generation (authConfig.js)
+#   7.  Frontend deployment (Azure Static Web Apps)
+#   8.  Update App Registration redirect URIs
+#   9.  Admin consent for User.Read
 #
 # Usage
 # ─────
 #   First deployment:
 #     ./infra/deploy.sh --project laps-prod
-#
-#   Re-deploy / update (existing secret – avoids regenerating):
-#     ./infra/deploy.sh --project laps-prod --secret "existing-client-secret"
 #
 #   Infrastructure only (skip code deploys):
 #     ./infra/deploy.sh --project laps-prod --skip-backend --skip-frontend
@@ -69,7 +65,6 @@ LOCATION=""
 SWA_LOCATION=""
 RESOURCE_GROUP=""
 CUSTOM_DOMAIN=""
-EXISTING_SECRET=""
 SKIP_INFRA=false
 SKIP_BACKEND=false
 SKIP_FRONTEND=false
@@ -88,8 +83,6 @@ ${BOLD}Options:${NC}
                            Allowed: westus2, centralus, eastus2, westeurope, eastasia
   --resource-group <name>  Resource group name (default: rg-<project>)
   --domain <fqdn>      Custom domain for the Static Web App (optional)
-  --secret <secret>    Existing Easy Auth client secret – skips secret generation
-                       Use this for re-deployments to avoid rotating the secret
   --skip-infra         Skip Bicep deployment (code-only update)
   --skip-backend       Skip Azure Functions deployment
   --skip-frontend      Skip Static Web App deployment
@@ -98,7 +91,6 @@ ${BOLD}Options:${NC}
 ${BOLD}Examples:${NC}
   $0 --project laps-prod
   $0 --project laps-prod --location westeurope
-  $0 --project laps-prod --secret 'my-existing-secret'
   $0 --project laps-prod --skip-infra
 "
   exit 0
@@ -111,7 +103,6 @@ while [[ $# -gt 0 ]]; do
     --swa-location)   SWA_LOCATION="$2";     shift 2 ;;
     --resource-group) RESOURCE_GROUP="$2";   shift 2 ;;
     --domain)         CUSTOM_DOMAIN="$2";    shift 2 ;;
-    --secret)         EXISTING_SECRET="$2";  shift 2 ;;
     --skip-infra)     SKIP_INFRA=true;       shift   ;;
     --skip-backend)   SKIP_BACKEND=true;     shift   ;;
     --skip-frontend)  SKIP_FRONTEND=true;    shift   ;;
@@ -213,7 +204,6 @@ CONFIRM="${CONFIRM:-Y}"
 # ── Step 3: App Registration (CLI) + Bicep infrastructure ────────────────────
 
 CLIENT_ID=""
-CLIENT_SECRET=""
 BACKEND_URL=""
 FRONTEND_URL=""
 MI_PRINCIPAL_ID=""
@@ -292,34 +282,8 @@ SCOPE_JSON
     print_success "'access_as_user' scope defined"
   fi
 
-  # Client secret
-  if [[ -n "$EXISTING_SECRET" ]]; then
-    CLIENT_SECRET="$EXISTING_SECRET"
-    print_success "Using provided client secret"
-  else
-    echo "  Generating Easy Auth client secret..."
-    set +e
-    CRED_OUTPUT=$(az ad app credential reset \
-      --id "$CLIENT_ID" --append --years 2 \
-      --display-name "LAPS Portal Easy Auth – $(date +%Y-%m-%d)" \
-      --query password -o tsv --only-show-errors 2>&1)
-    CRED_EXIT=$?
-    set -e
-    if [[ $CRED_EXIT -ne 0 ]]; then
-      if echo "$CRED_OUTPUT" | grep -qi "policy\|Credential type not allowed"; then
-        print_error "Could not create client secret – blocked by an Entra ID App Management Policy."
-        echo "  → In Azure Portal: Entra ID → Enterprise Applications → Security → App Management Policies"
-        echo "    Disable 'Block password credentials for applications' or exempt this app."
-        echo ""
-        echo "  Once resolved, re-run and pass the manually created secret:"
-        echo "  ./infra/deploy.sh --project $PROJECT_NAME --secret '<your-secret>'"
-        exit 1
-      fi
-      die "Failed to create client secret: $CRED_OUTPUT"
-    fi
-    CLIENT_SECRET="$CRED_OUTPUT"
-    print_success "Client secret generated (expires in 2 years)"
-  fi
+  # No client secret needed – Easy Auth validates tokens without a secret.
+  # The Managed Identity handles all Microsoft Graph API calls.
 
   # ── Bicep deployment (single pass – all params known upfront) ────────────────
   echo "  Deploying Bicep infrastructure..."
@@ -329,7 +293,6 @@ SCOPE_JSON
     "swaLocation=$SWA_LOCATION"
     "resourceGroupName=$RESOURCE_GROUP"
     "authClientId=$CLIENT_ID"
-    "authClientSecret=$CLIENT_SECRET"
   )
   [[ -n "$CUSTOM_DOMAIN" ]] && BICEP_PARAMS+=("customDomain=$CUSTOM_DOMAIN")
 
@@ -604,19 +567,13 @@ echo -e "
   ${BOLD}Tenant ID     :${NC} ${TENANT_ID}
 "
 
-if [[ -n "$CLIENT_SECRET" ]]; then
-  echo -e "${YELLOW}${BOLD}  ⚠ Save this client secret – it cannot be retrieved again:${NC}"
-  echo -e "${YELLOW}    $CLIENT_SECRET${NC}"
-  echo ""
-fi
-
 echo -e "${GREEN}${BOLD}  Next steps:${NC}"
 echo "  1. Open $FRONTEND_URL in a browser"
 echo "  2. Sign in with an Entra ID account"
 echo "  3. Verify your managed devices appear in the list"
 echo "  4. Test LAPS password retrieval"
 echo ""
-echo -e "  For re-deployments: $0 --project $PROJECT_NAME --secret '<your-secret>'"
+echo -e "  For re-deployments: $0 --project $PROJECT_NAME"
 echo ""
 echo -e "${RED}${BOLD}  🚨 Mandatory Access Controls – do this before going live:${NC}"
 echo ""

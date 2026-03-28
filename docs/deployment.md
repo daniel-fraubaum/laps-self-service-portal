@@ -74,7 +74,7 @@ The script executes these steps in order:
 |------|--------|
 | 1 | Check prerequisites (`az`, `swa`, `node`, `npm`) |
 | 2 | Verify Azure CLI login (`az login` if needed), confirm subscription |
-| 3 | Create Entra ID App Registration via `az ad app` (or reuse existing), set identifier URI `api://<clientId>`, generate client secret |
+| 3 | Create Entra ID App Registration via `az ad app` (or reuse existing), set identifier URI `api://<clientId>` |
 | 4 | Deploy Bicep infrastructure (single pass, all parameters known upfront) |
 | 5 | Assign `Device.Read.All`, `DeviceLocalCredential.Read.All`, `Directory.Read.All` to the Function App's Managed Identity |
 | 6 | Deploy backend via zip-to-blob + `WEBSITE_RUN_FROM_PACKAGE` |
@@ -83,8 +83,7 @@ The script executes these steps in order:
 | 9 | Add Static Web App URL to App Registration redirect URIs |
 | 10 | Grant admin consent for `User.Read` |
 
-At the end, the script prints the portal URL and the generated client secret.
-**Save the client secret** — it cannot be retrieved again after the script exits.
+At the end, the script prints the portal URL and deployment details.
 
 ---
 
@@ -123,18 +122,6 @@ echo "Client ID: $CLIENT_ID"
 # Set identifier URI (required for Easy Auth audience validation)
 az ad app update --id "$CLIENT_ID" \
   --identifier-uris "api://$CLIENT_ID"
-
-# Generate client secret (save this – it cannot be retrieved again)
-CLIENT_SECRET=$(az ad app credential reset \
-  --id "$CLIENT_ID" \
-  --append \
-  --years 2 \
-  --display-name "LAPS Portal Easy Auth – $(date +%Y-%m-%d)" \
-  --query password \
-  -o tsv)
-
-echo "Client Secret: $CLIENT_SECRET"
-# ⚠ Save the client secret – you will need it for re-deployments
 ```
 
 ### 2️⃣ Step 2 – Deploy Bicep infrastructure
@@ -149,7 +136,6 @@ az deployment sub create \
     projectName=laps-prod \
     location=germanywestcentral \
     authClientId="$CLIENT_ID" \
-    authClientSecret="$CLIENT_SECRET" \
   --name laps-laps-prod
 ```
 
@@ -307,16 +293,14 @@ az ad app permission grant \
 .\infra\deploy.ps1 -Project laps-prod -SkipInfra
 ```
 
-### 🔁 Full update with existing secret
-
-Provide the secret you saved from the initial deployment to avoid rotating it:
+### 🔁 Full update
 
 ```bash
 # Bash
-./infra/deploy.sh --project laps-prod --secret "your-existing-secret"
+./infra/deploy.sh --project laps-prod
 
 # PowerShell
-.\infra\deploy.ps1 -Project laps-prod -Secret "your-existing-secret"
+.\infra\deploy.ps1 -Project laps-prod
 ```
 
 ### ⚡ Backend only
@@ -335,27 +319,6 @@ swa deploy \
   --deployment-token "$(az deployment sub show --name laps-laps-prod \
       --query properties.outputs.staticWebAppDeploymentToken.value -o tsv)"
 ```
-
-### 🔑 Rotate client secret
-
-When the client secret approaches expiry (default: 2 years), generate a new one
-and redeploy. The `--append` flag keeps existing secrets valid during the transition.
-
-```bash
-CLIENT_ID="<your-client-id>"
-
-NEW_SECRET=$(az ad app credential reset \
-  --id "$CLIENT_ID" \
-  --append \
-  --years 2 \
-  --display-name "LAPS Portal Easy Auth – $(date +%Y-%m-%d)" \
-  --query password -o tsv)
-
-./infra/deploy.sh --project laps-prod --secret "$NEW_SECRET"
-```
-
-After confirming the new secret works, delete the old one in Azure Portal →
-App registrations → Certificates & secrets.
 
 ---
 
@@ -430,12 +393,10 @@ laps.company.com  CNAME  <project>-swa.azurestaticapps.net
 ```bash
 # Bash
 ./infra/deploy.sh --project laps-prod \
-  --secret "your-existing-secret" \
   --domain laps.company.com
 
 # PowerShell
 .\infra\deploy.ps1 -Project laps-prod `
-  -Secret "your-existing-secret" `
   -CustomDomain laps.company.com
 ```
 
@@ -445,8 +406,7 @@ Or set the parameter in `infra/main.parameters.json` and run `az deployment sub 
 {
   "parameters": {
     "projectName":    { "value": "laps-prod" },
-    "customDomain":   { "value": "laps.company.com" },
-    "authClientSecret": { "value": "..." }
+    "customDomain":   { "value": "laps.company.com" }
   }
 }
 ```
@@ -539,7 +499,7 @@ az ad app update --id "<client-id>" \
 
 ### 🔴 HTTP 401 from the Function App
 
-**Cause A:** Easy Auth client secret is wrong or missing.
+**Cause A:** Easy Auth is not properly configured.
 
 ```bash
 # Verify Easy Auth is configured
@@ -549,7 +509,7 @@ az webapp auth show \
   --query "{enabled:enabled,action:globalValidation.unauthenticatedClientAction}"
 ```
 
-Re-run the full deployment with the correct secret if needed.
+Re-run the full deployment if needed.
 
 **Cause B:** Token audience mismatch — the identifier URI (`api://<clientId>`)
 is missing from the App Registration.

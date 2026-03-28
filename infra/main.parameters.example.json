@@ -10,14 +10,6 @@
     },
     "customDomain": {
       "value": ""
-    },
-    "authClientSecret": {
-      "reference": {
-        "keyVault": {
-          "id": "/subscriptions/<subscriptionId>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>"
-        },
-        "secretName": "laps-auth-client-secret"
-      }
     }
   }
 }
