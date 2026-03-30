@@ -11,9 +11,9 @@
     "lint": "eslint src/"
   },
   "dependencies": {
-    "@azure/data-tables": "^13.2.2",
+    "@azure/data-tables": "^13.3.2",
     "@azure/functions": "^4.5.0",
-    "@azure/identity": "^4.4.1",
+    "@azure/identity": "^4.13.1",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "applicationinsights": "^3.3.0",
     "jsonwebtoken": "^9.0.2",

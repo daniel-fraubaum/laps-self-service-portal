@@ -89,6 +89,15 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
           value: '~3'
         }
 
+        // ── Azure SDK logging ───────────────────────────────────────────────
+        // Suppress known deprecation warnings from auto-generated Azure SDK
+        // clients (e.g. @azure/data-tables internally uses 'baseUri' instead
+        // of 'endpoint'). Only errors are logged – warnings/info/debug are off.
+        {
+          name: 'AZURE_LOG_LEVEL'
+          value: 'error'
+        }
+
         // ── Application settings ────────────────────────────────────────────
         {
           name: 'TENANT_ID'
