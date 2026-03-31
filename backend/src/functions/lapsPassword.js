@@ -129,7 +129,7 @@ app.http('laps-password', {
     // ── 4. Retrieve LAPS password from Microsoft Graph ─────────────────────
     let lapsResult;
     try {
-      lapsResult = await getLapsPassword(deviceId);
+      lapsResult = await getLapsPassword(device.name);
     } catch (err) {
       if (err.code === 'NOT_FOUND') {
         trackPasswordAccess({

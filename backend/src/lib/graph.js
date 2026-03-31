@@ -113,28 +113,52 @@ async function findOwnedDevice(deviceId, userId) {
 
 /**
  * Retrieve the LAPS credential for the given device.
- * Uses a direct lookup by Entra Device Object ID:
- *   GET /v1.0/directory/deviceLocalCredentials/{deviceId}?$select=credentials,deviceName
+ * Uses a two-step approach:
+ *   1. GET /v1.0/directory/deviceLocalCredentials?$filter=deviceName eq '...'&$select=id,deviceName
+ *      Server-side filter to find the deviceLocalCredentialInfo id for the device.
+ *   2. GET /v1.0/directory/deviceLocalCredentials/{credInfoId}?$select=credentials,deviceName
+ *      Fetch the actual credential using the credentialInfo id.
  *
- * The deviceLocalCredentialInfo id IS the Entra Device Object ID, so we can
- * skip listing all credentials and look up directly — avoiding pagination
- * issues in tenants with many LAPS-enabled devices.
+ * The deviceLocalCredentialInfo id is NOT the Entra Device Object ID — it is a
+ * separate identifier. Using $filter avoids the old pagination bug where listing
+ * all credentials without pagination missed devices beyond the first page.
  *
  * We use native fetch (Node 18+) instead of the Graph SDK client to avoid
  * the SDK's version-override mechanism conflicting with a custom baseUrl.
  *
  * Requires: DeviceLocalCredential.Read.All
  *
- * @param {string} deviceId  Entra Device Object ID
+ * @param {string} deviceName  Display name of the device (from registeredDevices)
  * @returns {Promise<LapsCredential>}
  * @throws {Error} err.code === 'NOT_FOUND' if no credential is stored
  */
-async function getLapsPassword(deviceId) {
+async function getLapsPassword(deviceName) {
   const tokenResponse = await getCredential().getToken(`${GRAPH_ENDPOINT}/.default`);
   const authHeader = { Authorization: `Bearer ${tokenResponse.token}` };
 
-  // ── Direct lookup by Entra Device Object ID ───────────────────────────────
-  const url = `${GRAPH_ENDPOINT}/v1.0/directory/deviceLocalCredentials/${encodeURIComponent(deviceId)}?$select=credentials,deviceName`;
+  // ── Step 1: find the deviceLocalCredentialInfo id by server-side filter ────
+  const escapedName = deviceName.replace(/'/g, "''");
+  const listUrl = `${GRAPH_ENDPOINT}/v1.0/directory/deviceLocalCredentials?$filter=deviceName eq '${encodeURIComponent(escapedName)}'&$select=id,deviceName`;
+  const listRes = await fetch(listUrl, { headers: authHeader });
+  let listResult;
+  try   { listResult = await listRes.json(); }
+  catch { listResult = {}; }
+
+  if (!listRes.ok) {
+    const msg = listResult?.error?.message ?? `HTTP ${listRes.status}`;
+    throw new Error(`Failed to query deviceLocalCredentials: ${msg}`);
+  }
+
+  const credInfo = (listResult?.value ?? [])[0];
+
+  if (!credInfo) {
+    const notFound = new Error(`No LAPS credential found for device "${deviceName}".`);
+    notFound.code = 'NOT_FOUND';
+    throw notFound;
+  }
+
+  // ── Step 2: fetch the full credential using the deviceLocalCredentialInfo id ─
+  const url = `${GRAPH_ENDPOINT}/v1.0/directory/deviceLocalCredentials/${credInfo.id}?$select=credentials,deviceName`;
   const res = await fetch(url, { headers: authHeader });
 
   let result;
