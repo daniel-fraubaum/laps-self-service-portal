@@ -113,51 +113,31 @@ async function findOwnedDevice(deviceId, userId) {
 
 /**
  * Retrieve the LAPS credential for the given device.
- * Uses a two-step approach:
- *   1. GET /v1.0/directory/deviceLocalCredentials?$select=id,deviceName
- *      to find the deviceLocalCredentialInfo id matching the device display name.
- *   2. GET /v1.0/directory/deviceLocalCredentials/{credInfoId}?$select=credentials,deviceName
- *      to fetch the actual credential.
+ * Uses a direct lookup by Entra Device Object ID:
+ *   GET /v1.0/directory/deviceLocalCredentials/{deviceId}?$select=credentials,deviceName
  *
- * The deviceLocalCredentialInfo id is NOT necessarily the Entra Device Object ID —
- * it is a separate identifier that must be obtained from the listing endpoint.
+ * The deviceLocalCredentialInfo id IS the Entra Device Object ID, so we can
+ * skip the listing endpoint entirely and fetch the credential directly.
  * We use native fetch (Node 18+) instead of the Graph SDK client to avoid
  * the SDK's version-override mechanism conflicting with a custom baseUrl.
  *
  * Requires: DeviceLocalCredential.Read.All
  *
- * @param {string} deviceName  Display name of the device (from registeredDevices)
+ * @param {string} deviceId  Entra Device Object ID
  * @returns {Promise<LapsCredential>}
  * @throws {Error} err.code === 'NOT_FOUND' if no credential is stored
  */
-async function getLapsPassword(deviceName) {
+async function getLapsPassword(deviceId) {
+  // Validate that deviceId is a valid GUID to prevent URL manipulation
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(deviceId)) {
+    throw new Error('Invalid device ID format.');
+  }
+
   const tokenResponse = await getCredential().getToken(`${GRAPH_ENDPOINT}/.default`);
   const authHeader = { Authorization: `Bearer ${tokenResponse.token}` };
 
-  // ── Step 1: find the deviceLocalCredentialInfo id by device display name ──
-  const listUrl = `${GRAPH_ENDPOINT}/v1.0/directory/deviceLocalCredentials?$select=id,deviceName`;
-  const listRes = await fetch(listUrl, { headers: authHeader });
-  let listResult;
-  try   { listResult = await listRes.json(); }
-  catch { listResult = {}; }
-
-  if (!listRes.ok) {
-    const msg = listResult?.error?.message ?? `HTTP ${listRes.status}`;
-    throw new Error(`Failed to list deviceLocalCredentials: ${msg}`);
-  }
-
-  const credInfo = (listResult?.value ?? []).find(
-    c => c.deviceName?.toLowerCase() === deviceName?.toLowerCase()
-  );
-
-  if (!credInfo) {
-    const notFound = new Error(`No LAPS credential found for device "${deviceName}".`);
-    notFound.code = 'NOT_FOUND';
-    throw notFound;
-  }
-
-  // ── Step 2: fetch the full credential using the deviceLocalCredentialInfo id ─
-  const url = `${GRAPH_ENDPOINT}/v1.0/directory/deviceLocalCredentials/${credInfo.id}?$select=credentials,deviceName`;
+  // ── Fetch the credential directly by Entra Device Object ID ───────────
+  const url = `${GRAPH_ENDPOINT}/v1.0/directory/deviceLocalCredentials/${deviceId}?$select=credentials,deviceName`;
   const res = await fetch(url, { headers: authHeader });
 
   let result;
