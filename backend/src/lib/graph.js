@@ -138,7 +138,7 @@ async function getLapsPassword(deviceName) {
 
   // ── Step 1: find the deviceLocalCredentialInfo id by server-side filter ────
   const escapedName = deviceName.replace(/'/g, "''");
-  const listUrl = `${GRAPH_ENDPOINT}/v1.0/directory/deviceLocalCredentials?$filter=deviceName eq '${encodeURIComponent(escapedName)}'&$select=id,deviceName`;
+  const listUrl = `${GRAPH_ENDPOINT}/v1.0/directory/deviceLocalCredentials?$filter=deviceName eq '${encodeURIComponent(escapedName)}'&$select=id,deviceName,lastBackupDateTime`;
   const listRes = await fetch(listUrl, { headers: authHeader });
   let listResult;
   try   { listResult = await listRes.json(); }
@@ -149,7 +149,11 @@ async function getLapsPassword(deviceName) {
     throw new Error(`Failed to query deviceLocalCredentials: ${msg}`);
   }
 
-  const credInfo = (listResult?.value ?? [])[0];
+  // Pick the credential with the most recent backup (handles multiple entries
+  // for the same device name, e.g. after re-enrollment or policy changes)
+  const credInfo = (listResult?.value ?? [])
+    .sort((a, b) => (b.lastBackupDateTime ?? '').localeCompare(a.lastBackupDateTime ?? ''))
+    [0];
 
   if (!credInfo) {
     const notFound = new Error(`No LAPS credential found for device "${deviceName}".`);
