@@ -105,10 +105,13 @@ async function findOwnedDevice(deviceId, userId) {
 
 /**
  * @typedef {object} LapsCredential
- * @property {string}      deviceName   - Display name of the device
- * @property {string}      accountName  - Local administrator account name
- * @property {string}      password     - Plaintext local administrator password
- * @property {string|null} expiresAt    - ISO 8601 expiry date, or null if not set
+ * @property {string}      deviceName       - Display name of the device
+ * @property {string}      accountName      - Local administrator account name
+ * @property {string}      password         - Plaintext local administrator password
+ * @property {string|null} passwordCreated  - ISO 8601 timestamp when this credential was backed up to Entra ID
+ *                                            (sourced from credentials[].backupDateTime)
+ * @property {string|null} nextRotation     - ISO 8601 timestamp when the password will next be refreshed and
+ *                                            backed up to Entra ID (sourced from top-level refreshDateTime)
  */
 
 /**
@@ -162,7 +165,10 @@ async function getLapsPassword(deviceName) {
   }
 
   // ── Step 2: fetch the full credential using the deviceLocalCredentialInfo id ─
-  const url = `${GRAPH_ENDPOINT}/v1.0/directory/deviceLocalCredentials/${credInfo.id}?$select=credentials,deviceName`;
+  // Note: refreshDateTime lives on the top-level deviceLocalCredentialInfo object
+  // (it indicates the next scheduled refresh/rotation), while backupDateTime lives
+  // per-credential inside the credentials[] array (last backup of that credential).
+  const url = `${GRAPH_ENDPOINT}/v1.0/directory/deviceLocalCredentials/${credInfo.id}?$select=credentials,deviceName,refreshDateTime`;
   const res = await fetch(url, { headers: authHeader });
 
   let result;
@@ -198,12 +204,11 @@ async function getLapsPassword(deviceName) {
     : (credential.password ?? '');
 
   return {
-    deviceName:  result.deviceName ?? '',
-    accountName: credential.accountName ?? '',
+    deviceName:      result.deviceName ?? '',
+    accountName:     credential.accountName ?? '',
     password,
-    expiresAt:  credential.passwordExpirationDateTime
-              ?? credential.backupDateTime
-              ?? null,
+    passwordCreated: credential.backupDateTime ?? null,
+    nextRotation:    result.refreshDateTime ?? null,
   };
 }
 

@@ -744,7 +744,8 @@
             <strong>Time expired</strong>
             <span>Please retrieve the password again.</span>
           </div>
-          <p id="pw-expires" class="pw-expires"></p>
+          <p id="pw-created" class="pw-expires"></p>
+          <p id="pw-next-rotation" class="pw-expires"></p>
 
           <p style="font-size:var(--font-size-xs); color:var(--color-text-muted); line-height:1.5;">
             This password is only displayed temporarily and is never stored.
@@ -1080,14 +1081,16 @@
   }
 
   // ── Password display ───────────────────────────────────────────────────────
-  function displayPassword({ deviceName, accountName, password, expiresAt }) {
+  function displayPassword({ deviceName, accountName, password, passwordCreated, nextRotation }) {
     document.getElementById('pw-device-name').textContent  = `Device: ${deviceName}`;
     document.getElementById('pw-account-name').textContent = accountName ? `Account: ${accountName}` : '';
     document.getElementById('pw-input').value             = password;
     document.getElementById('pw-input').type              = 'password';
     document.getElementById('pw-copy-confirm').classList.add('hidden');
-    document.getElementById('pw-expires').textContent =
-      expiresAt ? `Password expires: ${fmtDate(expiresAt)}` : '';
+    document.getElementById('pw-created').textContent =
+      `Password created: ${passwordCreated ? fmtDate(passwordCreated) : 'Unknown'}`;
+    document.getElementById('pw-next-rotation').textContent =
+      `Next rotation: ${nextRotation ? fmtDate(nextRotation) : 'Unknown'}`;
 
     switchModalPhase('password');
     startCountdown(C.passwordTimeout);

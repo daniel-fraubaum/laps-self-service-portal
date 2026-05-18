@@ -17,7 +17,7 @@
  *   { "deviceId": "<entra-device-object-id>", "justification": "..." }
  *
  * Response 200:
- *   { "deviceName": "LAPTOP-ABC", "password": "...", "expiresAt": "...", "auditId": "..." }
+ *   { "deviceName": "LAPTOP-ABC", "password": "...", "passwordCreated": "...", "nextRotation": "...", "auditId": "..." }
  *
  * Response 400: Missing or invalid body
  * Response 401: Not authenticated
@@ -181,10 +181,11 @@ app.http('laps-password', {
     return {
       status: 200,
       jsonBody: {
-        deviceName:  lapsResult.deviceName,
-        accountName: lapsResult.accountName,  // local admin username
-        password:    lapsResult.password,      // plaintext, never logged or stored
-        expiresAt:   lapsResult.expiresAt,
+        deviceName:      lapsResult.deviceName,
+        accountName:     lapsResult.accountName,     // local admin username
+        password:        lapsResult.password,         // plaintext, never logged or stored
+        passwordCreated: lapsResult.passwordCreated,  // when this credential was backed up to Entra ID
+        nextRotation:    lapsResult.nextRotation,     // when the password will next be rotated
         auditId,
       },
     };
